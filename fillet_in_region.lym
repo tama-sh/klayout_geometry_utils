@@ -70,8 +70,9 @@ def fillet(ps, box=None, r=5, angle_range=[(-150, -30), (30, 150)], n_cir=20, la
 
     idx_seek = 0
     idx_new_e = n
+    idx = 0
     
-    for idx in range(n):
+    while(idx &lt; n):
         if not box or box.contains(ps[idx]):    
             v1 = (ps[idx] - ps[(idx-1)%n])
             v2 = (ps[(idx+1)%n] - ps[idx])
@@ -89,6 +90,7 @@ def fillet(ps, box=None, r=5, angle_range=[(-150, -30), (30, 150)], n_cir=20, la
 
                 # skip invalid corner
                 if (idx_s == idx) or (idx_e == idx):
+                    idx += 1
                     continue
 
                 v_s = ps[(idx_s+1)%n] - ps[idx_s]
@@ -120,12 +122,12 @@ def fillet(ps, box=None, r=5, angle_range=[(-150, -30), (30, 150)], n_cir=20, la
                     p_list.append(p_rot)
 
                 # calc excluded point again
-#                while (norm_vec(p_se - ps[idx_s]) &lt;= r*np.tan(abs(angle_se)/2)) and (not (idx_s == idx)):
-#                    idx_s = (idx_s - 1)%n
-#                while (norm_vec(p_se - ps[idx_e]) &lt;= r*np.tan(abs(angle_se)/2)) and (not (idx_e == idx)):
-#                    idx_e = (idx_e + 1)%n
+                while (norm_vec(p_se - ps[idx_s]) &lt;= r*np.tan(abs(angle_se)/2)) and (not (idx_s == idx)):
+                     idx_s = (idx_s - 1)%n
+                while (norm_vec(p_se - ps[idx_e]) &lt;= r*np.tan(abs(angle_se)/2)) and (not (idx_e == idx)):
+                     idx_e = (idx_e + 1)%n
 
-                if (not ps_new) and (idx_s &gt; idx_e):
+                if idx_s &gt; idx_e:
                     idx_new_e = (idx_s + 1)%n
                     ps_new.append(p_list)
                 else:
@@ -133,12 +135,19 @@ def fillet(ps, box=None, r=5, angle_range=[(-150, -30), (30, 150)], n_cir=20, la
                     ps_new.append(p_list)
 
                 idx_seek = idx_e
+                
+                if (idx &gt; idx_s) and (idx &gt; idx_e): # rotate back to the beg of list
+                    break
+                else:
+                    idx = idx_e-1 # subtract - 1 because +1 is added at the end
+        idx += 1
 
     if not ps_new:  # no fillet
         ps_new = ps
         return None
-    elif idx_seek == 0 and idx_new_e == n:
-        pass
+    elif idx_seek &gt; idx_new_e:
+        ps_new.append(ps[idx_seek:n])
+        ps_new.append(ps[0:idx_new_e])
     else:
         ps_new.append(ps[idx_seek:idx_new_e])
 
@@ -229,7 +238,7 @@ class FilletDialog(pya.QDialog):
     # ok and cancel
     yn_layout = pya.QHBoxLayout.new(self)
     ok_button = pya.QPushButton.new("OK", self)
-    ok_button.clicked(lambda: self.exec_fillet())
+    ok_button.clicked(lambda: self.exec_fillet_and_close())
     cancel_button = pya.QPushButton.new("Cancel", self)
     cancel_button.clicked(lambda: self.close())
     yn_layout.addWidget(ok_button)
@@ -250,6 +259,10 @@ class FilletDialog(pya.QDialog):
     manager.transaction("Round box-selected corner")
     round_selected_corner(self.cur_cell, target_layer, box_layer, r, self.dbu)
     manager.commit()
+    
+  def exec_fillet_and_close(self):
+    self.exec_fillet()
+    self.close()
 
 dialog = FilletDialog()
 dialog.exec_()
