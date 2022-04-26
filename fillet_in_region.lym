@@ -172,7 +172,7 @@ def fillet(ps, box=None, r=5, angle_range=[(-150, -30), (30, 150)], n_cir=20, la
     return list(chain.from_iterable(ps_new))
 
 
-def round_selected_corner(cell, target_layer, box_layer, r, dbu):  
+def round_selected_corner(cell, target_layer, box_layer, r, angle_range, dbu):  
   # shapes
   for s_box in cell.each_shape(box_layer.layer_index(), pya.Shapes.SBoxes):
     box = s_box.dbox
@@ -194,7 +194,7 @@ def round_selected_corner(cell, target_layer, box_layer, r, dbu):
         continue
 
       #new_ps=ps
-      new_ps = fillet(ps, box, r=r)
+      new_ps = fillet(ps, box, r, angle_range)
 
       if new_ps:
         s.delete()
@@ -282,12 +282,15 @@ class FilletDialog(pya.QDialog):
     target_layer = self.layer_list[self.t_lay_cbox.currentIndex]
     box_layer = self.layer_list[self.b_lay_cbox.currentIndex]
     r = float(self.r_edit.text)
+    min_angle = 180 - float(self.max_angle_edit.text)
+    max_angle = 180 - float(self.min_angle_edit.text)
+    angle_range = [(-max_angle, -min_angle), (min_angle, max_angle)]
     
     # manager
     manager = self.mw.manager()
     # begin transaction
     manager.transaction("Round box-selected corner")
-    round_selected_corner(self.cur_cell, target_layer, box_layer, r, self.dbu)
+    round_selected_corner(self.cur_cell, target_layer, box_layer, r, angle_range, self.dbu)
     manager.commit()
     
   def exec_fillet_and_close(self):
