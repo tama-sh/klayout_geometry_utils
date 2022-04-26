@@ -80,6 +80,24 @@ def fillet(ps, box=None, r=5, angle_range=[(-150, -30), (30, 150)], n_cir=20, la
             angle = vec_angle(v1, v2)
             
             if in_range(angle*180.0/np.pi, angle_range):
+                # skip fake structure
+                r_fake = 0.1*5
+                idx_s = (idx - 1)%n
+                idx_e = (idx + 1)%n
+
+                while (norm_vec(ps[idx] - ps[idx_s]) &lt;= r_fake*np.tan(abs(angle)/2)) and (not (idx_s == idx)):
+                    idx_s = (idx_s - 1)%n
+                while (norm_vec(ps[idx] - ps[idx_e]) &lt;= r_fake*np.tan(abs(angle)/2)) and (not (idx_e == idx)):
+                    idx_e = (idx_e + 1)%n
+                
+                v_s = ps[(idx_s+1)%n] - ps[idx_s]
+                v_e = ps[idx_e] - ps[(idx_e-1)%n]
+                angle_fake = vec_angle(v_s, v_e)
+                if not in_range(angle_fake*180.0/np.pi, angle_range):
+                  idx += 1
+                  continue
+                
+                # find boundary index
                 idx_s = (idx - 1)%n
                 idx_e = (idx + 1)%n
 
@@ -90,12 +108,12 @@ def fillet(ps, box=None, r=5, angle_range=[(-150, -30), (30, 150)], n_cir=20, la
 
                 # skip invalid corner
                 if (idx_s == idx) or (idx_e == idx):
-                    idx += 1
-                    continue
+                  idx += 1
+                  continue                
 
                 v_s = ps[(idx_s+1)%n] - ps[idx_s]
                 v_e = ps[idx_e] - ps[(idx_e-1)%n]
-                angle_se = vec_angle(v_s, v_e)
+                angle_se = vec_angle(v_s, v_e)               
                 n_s = v_s*(1/norm_vec(v_s))
                 n_e = v_e*(1/norm_vec(v_e))
 
@@ -223,16 +241,28 @@ class FilletDialog(pya.QDialog):
     
     r_str = pya.QLabel.new("radius:", self)
     self.r_edit = pya.QLineEdit("10", self)
-    r_validator = pya.QDoubleValidator(self)
-    r_validator.setBottom(0)
+    length_validator = pya.QDoubleValidator(self)
+    length_validator.setBottom(0)
     decimals = -int(np.floor(np.log10(self.dbu)))
     if decimals &lt; 0:
-      r_validator.setDecimals(0)
+      length_validator.setDecimals(0)
     else:
-      r_validator.setDecimals(decimals)
-    self.r_edit.setValidator(r_validator)
+      length_validator.setDecimals(decimals)
+    self.r_edit.setValidator(length_validator)
     layer_sel_layout.addRow(r_str, self.r_edit) 
 
+    angle_validator = pya.QDoubleValidator(self)
+    angle_validator.setBottom(0)
+    angle_validator.setTop(180)
+    min_angle_str = pya.QLabel.new("min angle:", self)
+    self.min_angle_edit = pya.QLineEdit("30", self)
+    self.min_angle_edit.setValidator(angle_validator)
+    max_angle_str = pya.QLabel.new("max angle:", self)
+    self.max_angle_edit = pya.QLineEdit("150", self)
+    self.max_angle_edit.setValidator(angle_validator)
+    layer_sel_layout.addRow(min_angle_str, self.min_angle_edit)
+    layer_sel_layout.addRow(max_angle_str, self.max_angle_edit)
+    
     layout.addLayout(layer_sel_layout)
 
     # ok and cancel
