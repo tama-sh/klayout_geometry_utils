@@ -16,54 +16,10 @@
  <dsl-interpreter-name/>
  <text>import pya
 import numpy as np
+from vector_utils import *
 from itertools import chain
 
 ### functions ###
-
-def in_range(x, r):
-    if isinstance(r, list):
-        return any(map(lambda r_elt: in_range(x, r_elt), r))
-    else:
-        return (r[0] &lt;= x) and (x &lt;= r[1])
-
-
-def det_mat(m):
-    """
-      m: pya.Matrix2d
-      return: float
-    """
-    return (m.m11()*m.m22() - m.m12()*m.m21())
-
-def dot_vec(p0, p1):
-    """
-      p0, p1: DPoint
-    """
-    return (p0.x*p1.x + p0.y*p1.y)
-
-def norm_vec(p):
-    """
-      p: DPoint
-    """
-    return np.sqrt(p.x*p.x + p.y*p.y)
-
-def vec_angle(v0, v1):
-    """
-      v0, v1: pya.DPoint
-      return: float
-    """
-    m = pya.Matrix2d.new(v0.x, v0.y, v1.x, v1.y)
-    return np.arctan2(det_mat(m), dot_vec(v0,v1))
-
-def rot_vec(v, angle):
-    """
-      v: pya.DPoint
-      angle: float
-      return: pya.DPoint
-    """
-    mat = pya.Matrix2d.new(np.cos(angle), -np.sin(angle),
-                           np.sin(angle), np.cos(angle))
-    return mat.trans(v)
-
 def fillet(ps, box=None, r=5, angle_range=[(-150, -30), (30, 150)], n_cir=20, layer=1):
     ps_new = []
     n = len(ps)
@@ -161,7 +117,6 @@ def fillet(ps, box=None, r=5, angle_range=[(-150, -30), (30, 150)], n_cir=20, la
         idx += 1
 
     if not ps_new:  # no fillet
-        ps_new = ps
         return None
     elif idx_seek &gt; idx_new_e:
         ps_new.append(ps[idx_seek:n])

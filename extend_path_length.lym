@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8"?>
+<klayout-macro>
+ <description>Extend/Shorten Paths in Boxes</description>
+ <version/>
+ <category>pymacros</category>
+ <prolog/>
+ <epilog/>
+ <doc/>
+ <autorun>false</autorun>
+ <autorun-early>false</autorun-early>
+ <shortcut/>
+ <show-in-menu>true</show-in-menu>
+ <group-name/>
+ <menu-path>edit_menu.my_group&gt;end("Geometry Utils").end</menu-path>
+ <interpreter>python</interpreter>
+ <dsl-interpreter-name/>
+ <text>import pya
+import numpy as np
+from vector_utils import unit_vec
+from copy import copy
+
+def extend_path_end(ps, box, length):
+    ps_new = copy(ps)
+    n = len(ps)
+    end_idx_list = []
+
+    for i in range(n):
+        if box.contains(ps[i]):    
+          end_idx_list.append(i)
+
+    if len(end_idx_list) != 2:
+      return None
+
+    if end_idx_list[0] == 0:
+      i0 = -1
+      i1 = 0
+    else:
+      i0 = end_idx_list[0]
+      i1 = end_idx_list[1]
+
+    print(i0,i1, ps)
+
+    e_ext = unit_vec(ps[i0] - ps[i0-1])
+    ps_new[i0] = ps[i0] + e_ext*length
+    ps_new[i1] = ps[i1] + e_ext*length
+
+    return ps_new
+
+def extend_selected_path_end(cell, target_layer, box_layer, length, dbu):  
+  # shapes
+  for s_box in cell.each_shape(box_layer.layer_index(), pya.Shapes.SBoxes):
+    box = s_box.dbox
+    for s in cell.each_overlapping_shape(target_layer.layer_index(), box, pya.Shapes.SAll):
+      ps = []
+      
+      if s.is_box():
+        poly_box = pya.DSimplePolygon(s.dbox)
+        for p in poly_box.each_point():
+          ps.append(p)
+      elif s.is_simple_polygon():
+        for p in s.dsimple_polygon.each_point():
+          ps.append(p)
+      elif s.is_polygon():
+        dspoly = s.polygon.to_simple_polygon().to_dtype(dbu)
+        for p in dspoly.each_point():
+          ps.append(p)
+      else:
+        continue
+
+      new_ps = extend_path_end(ps, box, length)
+
+      if new_ps:
+        s.delete()
+        poly = pya.DSimplePolygon(new_ps)
+        cell.shapes(target_layer.layer_index()).insert(poly)
+
+### make dialog ###
+class ExtendPathDialog(pya.QDialog):
+  def __init__(self, parent=None):
+    app = pya.Application.instance()
+    self.mw = app.main_window()
+    self.lv = self.mw.current_view()
+    cv = self.lv.active_cellview()
+    self.cur_cell = cv.cell
+    
+    cur_layout = cv.layout()
+    self.dbu = cur_layout.dbu
+    
+    self.layer_list = []
+    layer_str_list = []
+    
+    for layer in self.lv.each_layer():
+      self.layer_list.append(layer)
+      if layer.name:
+        layer_str_list.append(layer.name)
+      else:
+        layer_str_list.append("{0}/{1}".format(layer.source_layer, layer.source_datatype))
+
+    layout = pya.QVBoxLayout.new(self)
+
+    # layer list
+    layer_sel_layout = pya.QFormLayout.new(self)
+
+    t_lay_str = pya.QLabel.new("Target Layer:", self)
+    self.t_lay_cbox = pya.QComboBox.new(self)
+    self.t_lay_cbox.addItems(layer_str_list)
+    layer_sel_layout.addRow(t_lay_str, self.t_lay_cbox)
+
+    b_lay_str = pya.QLabel.new("Selecting Box Layer:", self)
+    self.b_lay_cbox = pya.QComboBox.new(self)
+    self.b_lay_cbox.addItems(layer_str_list)
+    self.b_lay_cbox.setCurrentIndex(self.b_lay_cbox.count-1)
+    layer_sel_layout.addRow(b_lay_str, self.b_lay_cbox)
+    
+    length_str = pya.QLabel.new("length:", self)
+    self.length_edit = pya.QLineEdit("10", self)
+    length_validator = pya.QDoubleValidator(self)
+    decimals = -int(np.floor(np.log10(self.dbu)))
+    if decimals &lt; 0:
+      length_validator.setDecimals(0)
+    else:
+      length_validator.setDecimals(decimals)
+    self.length_edit.setValidator(length_validator)
+    layer_sel_layout.addRow(length_str, self.length_edit) 
+    
+    layout.addLayout(layer_sel_layout)
+
+    # ok and cancel
+    yn_layout = pya.QHBoxLayout.new(self)
+    ok_button = pya.QPushButton.new("OK", self)
+    ok_button.clicked(lambda: self.exec_extend_path_and_close())
+    cancel_button = pya.QPushButton.new("Cancel", self)
+    cancel_button.clicked(lambda: self.close())
+    yn_layout.addWidget(ok_button)
+    yn_layout.addWidget(cancel_button)
+    layout.addLayout(yn_layout)
+
+    # layout
+    self.setLayout(layout)
+
+  def exec_extend_path_and_close(self):
+    self.exec_extend_path()
+    self.close()
+    
+  def exec_extend_path(self):
+    target_layer = self.layer_list[self.t_lay_cbox.currentIndex]
+    box_layer = self.layer_list[self.b_lay_cbox.currentIndex]
+    length = float(self.length_edit.text)
+    
+    # manager
+    manager = self.mw.manager()
+    # begin transaction
+    manager.transaction("Extend box-selected path")
+    extend_selected_path_end(self.cur_cell, target_layer, box_layer, length, self.dbu)
+    manager.commit()
+
+dialog = ExtendPathDialog()
+dialog.exec_()</text>
+</klayout-macro>
