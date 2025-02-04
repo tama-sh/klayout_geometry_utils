@@ -31,7 +31,7 @@ def extend_path_end(ps, box, length):
     if len(end_idx_list) != 2:
       return None
 
-    if end_idx_list[0] == 0:
+    if end_idx_list[0] == 0 and end_idx_list[1] == n-1:
       i0 = -1
       i1 = 0
     else:
